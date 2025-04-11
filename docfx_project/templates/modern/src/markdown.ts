@@ -370,7 +370,7 @@ function renderTabs() {
     event.preventDefault()
     info.anchor.href = 'javascript:'
     setTimeout(function() {
-      info.anchor.href = '#' + info.anchor.getAttribute('aria-controls')
+      info.anchor.href = '#' + encodeURIComponent(info.anchor.getAttribute('aria-controls'))
     })
     const tabIds = info.tabIds; const group = info.group
     const originalTop = info.anchor.getBoundingClientRect().top
