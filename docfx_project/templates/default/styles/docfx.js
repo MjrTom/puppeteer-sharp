@@ -912,7 +912,7 @@ $(function () {
       }
       event.preventDefault();
       info.anchor.href = 'javascript:';
-      setTimeout(function () { return info.anchor.href = '#' + info.anchor.getAttribute('aria-controls'); });
+      setTimeout(function () { return info.anchor.href = '#' + encodeURIComponent(info.anchor.getAttribute('aria-controls')); });
       var tabIds = info.tabIds, group = info.group;
       var originalTop = info.anchor.getBoundingClientRect().top;
       if (group.independent) {
