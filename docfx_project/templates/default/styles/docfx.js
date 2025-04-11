@@ -9,6 +9,15 @@ $(function () {
   var hide = 'hide';
   var util = new utility();
 
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   workAroundFixedHeaderForAnchors();
   highlight();
   enableSearch();
@@ -283,7 +292,7 @@ $(function () {
               curHits.map(function (hit) {
                 var currentUrl = window.location.href;
                 var itemRawHref = relativeUrlToAbsoluteUrl(currentUrl, relHref + hit.href);
-                var itemHref = relHref + hit.href + "?q=" + query;
+                var itemHref = relHref + hit.href + "?q=" + escapeHtml(query);
                 var itemTitle = hit.title;
                 var itemBrief = extractContentBrief(hit.keywords);
 
