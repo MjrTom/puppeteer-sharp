@@ -64,7 +64,7 @@ async function renderMermaid() {
   processedDiagrams.forEach(e => {
     if (e.offsetParent) {
       e.removeAttribute('data-processed')
-      e.innerHTML = e.getAttribute('data-mermaid')
+      e.textContent = e.getAttribute('data-mermaid')
       nodes.push(e)
     }
   })
