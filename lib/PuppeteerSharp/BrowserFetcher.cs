@@ -222,10 +222,16 @@ namespace PuppeteerSharp
 
         private static void ExecuteSetup(string exePath, string folderPath)
         {
+            // Ensure the folderPath is a valid directory path
+            if (string.IsNullOrWhiteSpace(folderPath) || folderPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+            {
+                throw new ArgumentException("Invalid folder path provided.", nameof(folderPath));
+            }
+
             new DirectoryInfo(folderPath).Create();
             using var process = new Process();
             process.StartInfo.FileName = exePath;
-            process.StartInfo.Arguments = $"/ExtractDir={folderPath}";
+            process.StartInfo.ArgumentList.Add($"/ExtractDir={folderPath}");
             process.StartInfo.EnvironmentVariables.Add("__compat_layer", "RuAsInvoker");
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.UseShellExecute = false;
