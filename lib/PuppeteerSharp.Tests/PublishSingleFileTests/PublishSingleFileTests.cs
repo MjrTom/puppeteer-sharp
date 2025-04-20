@@ -10,7 +10,13 @@ namespace PuppeteerSharp.Tests.SingleFileDeployment
         public void ShouldWork()
         {
             var tempPath = Path.GetTempPath();
-            var actualFilePath = Path.Combine(tempPath, $"google.jpg");
+            if (!Directory.Exists(tempPath))
+            {
+                throw new InvalidOperationException("Temporary path does not exist.");
+            }
+            var workingDirectory = Path.Combine(tempPath, "PuppeteerSharpTemp");
+            Directory.CreateDirectory(workingDirectory);
+            var actualFilePath = Path.Combine(workingDirectory, $"google.jpg");
             var actualWindowsBinary = DotnetPublishSingleFile("PuppeteerSharp.Tests.SingleFileDeployment");
 
             DeleteIfExists(actualFilePath);
@@ -24,7 +30,7 @@ namespace PuppeteerSharp.Tests.SingleFileDeployment
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WorkingDirectory = tempPath
+                    WorkingDirectory = workingDirectory
                 }
             };
 
