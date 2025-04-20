@@ -1,16 +1,19 @@
 # Puppeteer Sharp
 
-[![NuGet](https://buildstats.info/nuget/PuppeteerSharp)][NugetUrl]
-[![Build status](https://github.com/hardkoded/puppeteer-sharp/actions/workflows/dotnet.yml/badge.svg)][BuildUrl]
-[![Demo build status](https://github.com/hardkoded/puppeteer-sharp/actions/workflows/demo.yml/badge.svg)][BuildDemoUrl]
-[![CodeFactor](https://www.codefactor.io/repository/github/hardkoded/puppeteer-sharp/badge)][CodeFactorUrl]
-[![Backers](https://opencollective.com/hardkoded-projects/backers/badge.svg)][Backers]
+🍴
+<!-- [![NuGet](https://buildstats.info/nuget/PuppeteerSharp)][NugetUrl]
+[![Build status](https://github.com/hardkoded/puppeteer-sharp/actions/workflows/dotnet.yml/badge.svg)][BuildUrl] -->
+<!-- [![Demo build status](https://github.com/hardkoded/puppeteer-sharp/actions/workflows/demo.yml/badge.svg)][BuildDemoUrl] -->
+<!-- [![CodeFactor](https://www.codefactor.io/repository/github/hardkoded/puppeteer-sharp/badge)][CodeFactorUrl] -->
+<!-- [![Backers](https://opencollective.com/hardkoded-projects/backers/badge.svg)][Backers] -->
 
-[NugetUrl]: https://www.nuget.org/packages/PuppeteerSharp/
+<!-- [NugetUrl]: https://www.nuget.org/packages/PuppeteerSharp/ -->
+<!--
 [BuildUrl]: https://github.com/hardkoded/puppeteer-sharp/actions/workflows/dotnet.yml
 [BuildDemoUrl]: https://github.com/hardkoded/puppeteer-sharp/actions/workflows/demo.yml
 [CodeFactorUrl]: https://www.codefactor.io/repository/github/hardkoded/puppeteer-sharp
 [Backers]: https://opencollective.com/hardkoded-projects
+-->
 
 Puppeteer Sharp is a .NET port of the official [Node.JS Puppeteer API](https://github.com/puppeteer/puppeteer).
 
