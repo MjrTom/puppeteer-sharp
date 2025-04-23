@@ -9,12 +9,12 @@ namespace PuppeteerSharp.Tests.SingleFileDeployment
     {
         public void ShouldWork()
         {
-            var tempPath = Path.GetTempPath();
-            if (!Directory.Exists(tempPath))
+            var baseTempPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Temp");
+            if (!Directory.Exists(baseTempPath))
             {
-                throw new InvalidOperationException("Temporary path does not exist.");
+                Directory.CreateDirectory(baseTempPath);
             }
-            var workingDirectory = Path.Combine(tempPath, "PuppeteerSharpTemp");
+            var workingDirectory = Path.Combine(baseTempPath, "PuppeteerSharpTemp");
             Directory.CreateDirectory(workingDirectory);
             var actualFilePath = Path.Combine(workingDirectory, $"google.jpg");
             var actualWindowsBinary = DotnetPublishSingleFile("PuppeteerSharp.Tests.SingleFileDeployment");
