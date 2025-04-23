@@ -9,8 +9,14 @@ namespace PuppeteerSharp.Tests.SingleFileDeployment
     {
         public void ShouldWork()
         {
-            var tempPath = Path.GetTempPath();
-            var actualFilePath = Path.Combine(tempPath, $"google.jpg");
+            var baseTempPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Temp");
+            if (!Directory.Exists(baseTempPath))
+            {
+                Directory.CreateDirectory(baseTempPath);
+            }
+            var workingDirectory = Path.Combine(baseTempPath, "PuppeteerSharpTemp");
+            Directory.CreateDirectory(workingDirectory);
+            var actualFilePath = Path.Combine(workingDirectory, $"google.jpg");
             var actualWindowsBinary = DotnetPublishSingleFile("PuppeteerSharp.Tests.SingleFileDeployment");
 
             DeleteIfExists(actualFilePath);
@@ -24,7 +30,7 @@ namespace PuppeteerSharp.Tests.SingleFileDeployment
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WorkingDirectory = tempPath
+                    WorkingDirectory = workingDirectory
                 }
             };
 
