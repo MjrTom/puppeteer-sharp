@@ -10,7 +10,7 @@
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="CommandLineParser" Version="2.9.1" />
-		<PackageReference Include="System.CodeDom" Version="9.0.4" />
+		<PackageReference Include="System.CodeDom" Version="9.0.5" />
 		<PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
 		<PackageReference Include="NUnit" Version="4.3.2" />
 	</ItemGroup>
