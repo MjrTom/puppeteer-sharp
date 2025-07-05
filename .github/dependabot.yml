@@ -8,10 +8,10 @@ updates:
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "/lib/" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 500
   - package-ecosystem: "dotnet-sdk" # See documentation for possible values
     directory: "/lib/" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     open-pull-requests-limit: 500
