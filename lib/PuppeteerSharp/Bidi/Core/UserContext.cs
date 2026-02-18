@@ -20,6 +20,8 @@
 //  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  * SOFTWARE.
 
+#if !CDP_ONLY
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -77,9 +79,13 @@ internal class UserContext : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public async Task<BrowsingContext> CreateBrowserContextAsync(CreateType contextType)
+    public async Task<BrowsingContext> CreateBrowserContextAsync(CreateType contextType, bool? background = null)
     {
-        var createParams = new CreateCommandParameters(contextType) { UserContextId = Id };
+        var createParams = new CreateCommandParameters(contextType)
+        {
+            UserContextId = Id,
+            IsCreatedInBackground = background,
+        };
         var result = await Session.Driver.BrowsingContext.CreateAsync(createParams).ConfigureAwait(false);
 
         if (_browsingContexts.TryGetValue(result.BrowsingContextId, out var browsingContext))
@@ -160,7 +166,8 @@ internal class UserContext : IDisposable
             null,
             info.BrowsingContextId,
             info.Url,
-            info.OriginalOpener);
+            info.OriginalOpener,
+            info.ClientWindowId);
 
         _browsingContexts.TryAdd(browsingContext.Id, browsingContext);
 
@@ -179,3 +186,5 @@ internal class UserContext : IDisposable
 
     private void OnClosed() => Closed?.Invoke(this, new ClosedEventArgs(_reason));
 }
+
+#endif

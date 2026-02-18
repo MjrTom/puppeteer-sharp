@@ -20,6 +20,8 @@
 //  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  * SOFTWARE.
 
+#if !CDP_ONLY
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -38,12 +40,14 @@ public class BidiBrowserContext : BrowserContext
     private readonly ConcurrentDictionary<BrowsingContext, BidiPage> _pages = [];
     private readonly ConcurrentDictionary<BidiPage, BidiPageTargetInfo> _targets = new();
     private readonly List<(string Origin, OverridePermission Permission)> _overrides = [];
+    private readonly ILogger<BidiBrowserContext> _logger;
 
     private BidiBrowserContext(BidiBrowser browser, UserContext userContext, BidiBrowserContextOptions options)
     {
         UserContext = userContext;
         Browser = browser;
         DefaultViewport = options.DefaultViewport;
+        _logger = browser.LoggerFactory?.CreateLogger<BidiBrowserContext>();
     }
 
     internal ViewPortOptions DefaultViewport { get; set; }
@@ -121,9 +125,15 @@ public class BidiBrowserContext : BrowserContext
     public override Task<IPage[]> PagesAsync() => Task.FromResult(_pages.Values.Cast<IPage>().ToArray());
 
     /// <inheritdoc />
-    public override async Task<IPage> NewPageAsync()
+    public override async Task<IPage> NewPageAsync(CreatePageOptions options = null)
     {
-        var context = await UserContext.CreateBrowserContextAsync(WebDriverBiDi.BrowsingContext.CreateType.Tab).ConfigureAwait(false);
+        var type = options?.Type == CreatePageType.Window
+            ? WebDriverBiDi.BrowsingContext.CreateType.Window
+            : WebDriverBiDi.BrowsingContext.CreateType.Tab;
+
+        var context = await UserContext.CreateBrowserContextAsync(
+            type,
+            background: options?.Background).ConfigureAwait(false);
 
         if (!_pages.TryGetValue(context, out var page))
         {
@@ -136,9 +146,24 @@ public class BidiBrowserContext : BrowserContext
             {
                 await page.SetViewportAsync(DefaultViewport).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex)
             {
-                // No support for setViewport in Firefox.
+                // Tolerate not supporting browsingContext.setViewport. Only log it.
+                _logger?.LogDebug(ex, "Failed to set viewport");
+            }
+        }
+
+        if (options?.Type == CreatePageType.Window && options?.WindowBounds != null)
+        {
+            try
+            {
+                var windowId = await page.WindowIdAsync().ConfigureAwait(false);
+                await Browser.SetWindowBoundsAsync(windowId, options.WindowBounds).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Tolerate not supporting browser.setClientWindowState. Only log it.
+                _logger?.LogDebug(ex, "Failed to set window bounds");
             }
         }
 
@@ -318,4 +343,4 @@ public class BidiBrowserContext : BrowserContext
     }
 }
 
-
+#endif

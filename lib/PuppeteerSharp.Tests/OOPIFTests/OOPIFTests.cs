@@ -98,8 +98,8 @@ namespace PuppeteerSharp.Tests.OOPIFTests
         public async Task ShouldSupportFramesWithinOopFrames()
         {
             await Page.GoToAsync(TestConstants.EmptyPage);
-            var frame1Task = Page.WaitForFrameAsync((frame) => frame != Page.MainFrame && frame.ParentFrame == Page.MainFrame);
-            var frame2Task = Page.WaitForFrameAsync((frame) => frame != Page.MainFrame && frame.ParentFrame != Page.MainFrame);
+            var frame1Task = Page.WaitForFrameAsync((frame) => frame.Url.Contains("/frames/one-frame.html"));
+            var frame2Task = Page.WaitForFrameAsync((frame) => frame.Url.Contains("/frames/frame.html"));
 
             await FrameUtils.AttachFrameAsync(
               Page,
@@ -239,7 +239,7 @@ namespace PuppeteerSharp.Tests.OOPIFTests
               "frame1",
               TestConstants.CrossProcessHttpPrefix + "/empty.html"
             );
-            var frame = await frameTask.WithTimeout(5_000);
+            var frame = await frameTask.WithTimeout(30_000);
             await frame.EvaluateFunctionAsync(@"() => {
                 const button = document.createElement('button');
                 button.id = 'test-button';

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+#if !CDP_ONLY
 using PuppeteerSharp.Bidi;
+#endif
 using PuppeteerSharp.Cdp;
 using PuppeteerSharp.Helpers;
 using PuppeteerSharp.QueryHandlers;
@@ -71,7 +73,7 @@ namespace PuppeteerSharp
         internal abstract ProtocolType Protocol { get; }
 
         /// <inheritdoc/>
-        public abstract Task<IPage> NewPageAsync();
+        public abstract Task<IPage> NewPageAsync(CreatePageOptions options = null);
 
         /// <inheritdoc/>
         public abstract ITarget[] Targets();
@@ -171,6 +173,15 @@ namespace PuppeteerSharp
         /// <inheritdoc/>
         public void ClearCustomQueryHandlers()
             => CustomQuerySelectorRegistry.Default.ClearCustomQueryHandlers();
+
+        /// <inheritdoc/>
+        public Task<ICDPSession> CreateCDPSessionAsync() => Target.CreateCDPSessionAsync();
+
+        /// <inheritdoc/>
+        public abstract Task<WindowBounds> GetWindowBoundsAsync(string windowId);
+
+        /// <inheritdoc/>
+        public abstract Task SetWindowBoundsAsync(string windowId, WindowBounds windowBounds);
 
         /// <inheritdoc />
         public void Dispose()

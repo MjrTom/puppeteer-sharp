@@ -171,8 +171,9 @@ namespace PuppeteerSharp
         /// <summary>
         /// Creates a new page.
         /// </summary>
+        /// <param name="options">Options for creating the page.</param>
         /// <returns>Task which resolves to a new <see cref="IPage"/> object.</returns>
-        Task<IPage> NewPageAsync();
+        Task<IPage> NewPageAsync(CreatePageOptions options = null);
 
         /// <summary>
         /// Returns a Task which resolves to an array of all open pages.
@@ -231,6 +232,21 @@ namespace PuppeteerSharp
         void ClearCustomQueryHandlers();
 
         /// <summary>
+        /// Gets the specified window bounds.
+        /// </summary>
+        /// <param name="windowId">The window ID.</param>
+        /// <returns>A task that resolves to the <see cref="WindowBounds"/>.</returns>
+        Task<WindowBounds> GetWindowBoundsAsync(string windowId);
+
+        /// <summary>
+        /// Sets the specified window bounds.
+        /// </summary>
+        /// <param name="windowId">The window ID.</param>
+        /// <param name="windowBounds">The bounds to set.</param>
+        /// <returns>A task that resolves when the bounds have been set.</returns>
+        Task SetWindowBoundsAsync(string windowId, WindowBounds windowBounds);
+
+        /// <summary>
         /// Gets a list of <see cref="ScreenInfo"/> objects.
         /// </summary>
         /// <returns>A task that resolves to an array of screen information objects.</returns>
@@ -251,5 +267,11 @@ namespace PuppeteerSharp
         /// <returns>A task that completes when the screen is removed.</returns>
         /// <remarks>Only supported in headless mode. Fails if the primary screen ID is specified.</remarks>
         Task RemoveScreenAsync(string screenId);
+
+        /// <summary>
+        /// Creates a Chrome Devtools Protocol session attached to the browser.
+        /// </summary>
+        /// <returns>A task that returns a <see cref="ICDPSession"/>.</returns>
+        Task<ICDPSession> CreateCDPSessionAsync();
     }
 }
