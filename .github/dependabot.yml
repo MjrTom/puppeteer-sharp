@@ -12,13 +12,25 @@ updates:
     open-pull-requests-limit: 500
     
   - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/docfx_project" # Location of package manifests
+    directory: "/docfx_project/templates" # Location of package manifests
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 500
     
   - package-ecosystem: "npm" # See documentation for possible values
     directory: "/tools" # Location of package manifests
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 500
+    
+  - package-ecosystem: "npm" # See documentation for possible values
+    directory: "/tools/github-ops" # Location of package manifests
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 500
+    
+  - package-ecosystem: "npm" # See documentation for possible values
+    directory: "/tools/typescript-test" # Location of package manifests
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 500
