@@ -54,6 +54,17 @@ namespace PuppeteerSharp.Tests.NavigationTests
             Assert.That(response.Status, Is.EqualTo(HttpStatusCode.OK));
         }
 
+        [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should return response when page replaces its state during load")]
+        public async Task ShouldReturnResponseWhenPageReplacesItsStateDuringLoad()
+        {
+            var response = await Page.GoToAsync(TestConstants.ServerUrl + "/historyapi-replaceState.html", new NavigationOptions
+            {
+                WaitUntil = [WaitUntilNavigation.Networkidle2],
+            });
+            Assert.That(response.Status, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(Page.Url, Is.EqualTo(TestConstants.ServerUrl + "/historyapi-replaceState.html"));
+        }
+
         [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should work with subframes return 204")]
         public async Task ShouldWorkWithSubframesReturn204()
         {
@@ -95,6 +106,32 @@ namespace PuppeteerSharp.Tests.NavigationTests
             });
             Assert.That(response.Status, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(response.SecurityDetails, Is.Null);
+        }
+
+        [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should navigate successfully after encountering network error")]
+        public async Task ShouldNavigateSuccessfullyAfterEncounteringNetworkError()
+        {
+            // Destroy the connection to simulate a network error. This will open
+            // about:neterror on Firefox.
+            Server.SetRoute("/network-error", context =>
+            {
+                context.Abort();
+                return Task.CompletedTask;
+            });
+
+            Exception error = null;
+            try
+            {
+                await Page.GoToAsync(TestConstants.ServerUrl + "/network-error");
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            Assert.That(error, Is.Not.Null);
+            var response = await Page.GoToAsync(TestConstants.ServerUrl + "/grid.html");
+            Assert.That(response.Status, Is.EqualTo(HttpStatusCode.OK));
         }
 
         [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should work when page calls history API in beforeunload")]
@@ -279,6 +316,21 @@ namespace PuppeteerSharp.Tests.NavigationTests
         {
             var response = await Page.GoToAsync(TestConstants.EmptyPage);
             Assert.That(response.Status, Is.EqualTo(HttpStatusCode.OK));
+        }
+
+        [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should work when navigating to a URL with a client redirect")]
+        public async Task ShouldWorkWhenNavigatingToAURLWithAClientRedirect()
+        {
+            var response = await Page.GoToAsync(TestConstants.ServerUrl + "/client-redirect.html");
+            Assert.That(response.Ok, Is.True);
+            Assert.That(response.Url, Is.EqualTo(TestConstants.ServerUrl + "/client-redirect.html"));
+        }
+
+        [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should work when a page redirects on DOMContentLoaded")]
+        public async Task ShouldWorkWhenAPageRedirectsOnDOMContentLoaded()
+        {
+            var response = await Page.GoToAsync(TestConstants.ServerUrl + "/client-redirect-DOMContentLoaded.html");
+            Assert.That(response.Ok, Is.True);
         }
 
         [Test, PuppeteerTest("navigation.spec", "navigation Page.goto", "should work when navigating to data url")]

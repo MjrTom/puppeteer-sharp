@@ -14,7 +14,7 @@ namespace PuppeteerSharp.BrowserData
         /// <summary>
         /// Default chrome build.
         /// </summary>
-        public static string DefaultBuildId => "145.0.7632.77";
+        public static string DefaultBuildId => "146.0.7680.76";
 
         internal static async Task<string> ResolveBuildIdAsync(ChromeReleaseChannel channel)
             => (await GetLastKnownGoodReleaseForChannel(channel).ConfigureAwait(false)).Version;
@@ -67,6 +67,17 @@ namespace PuppeteerSharp.BrowserData
                     throw new PuppeteerException($"{platform} is not supported");
             }
         }
+
+        internal static string GetFolder(Platform platform)
+            => platform switch
+            {
+                Platform.Linux or Platform.LinuxArm64 => "linux64",
+                Platform.MacOSArm64 => "mac-arm64",
+                Platform.MacOS => "mac-x64",
+                Platform.Win32 => "win32",
+                Platform.Win64 => "win64",
+                _ => throw new PuppeteerException($"Unknown platform: {platform}"),
+            };
 
         private static string[] GetChromeWindowsLocations(ChromeReleaseChannel channel)
         {
@@ -135,16 +146,5 @@ namespace PuppeteerSharp.BrowserData
                 GetFolder(platform),
                 $"chrome-{GetFolder(platform)}.zip"
             ];
-
-        private static string GetFolder(Platform platform)
-            => platform switch
-            {
-                Platform.Linux or Platform.LinuxArm64 => "linux64",
-                Platform.MacOSArm64 => "mac-arm64",
-                Platform.MacOS => "mac-x64",
-                Platform.Win32 => "win32",
-                Platform.Win64 => "win64",
-                _ => throw new PuppeteerException($"Unknown platform: {platform}"),
-            };
     }
 }

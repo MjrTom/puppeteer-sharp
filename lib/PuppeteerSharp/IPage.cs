@@ -375,6 +375,13 @@ namespace PuppeteerSharp
         Task<IPage> OpenDevToolsAsync();
 
         /// <summary>
+        /// Returns true if DevTools is attached to the current page.
+        /// Use <see cref="OpenDevToolsAsync"/> to get the DevTools page.
+        /// </summary>
+        /// <returns>A <see cref="Task{Boolean}"/> that completes with true if DevTools is attached.</returns>
+        Task<bool> HasDevToolsAsync();
+
+        /// <summary>
         /// Deletes cookies from the page.
         /// </summary>
         /// <param name="cookies">Cookies to delete.</param>
@@ -997,6 +1004,17 @@ namespace PuppeteerSharp
         Task<IResponse> ReloadAsync(ReloadOptions options);
 
         /// <summary>
+        /// Captures a screencast of this <see cref="IPage"/>.
+        /// </summary>
+        /// <param name="options">Screencast options.</param>
+        /// <returns>A Task which resolves to a <see cref="ScreenRecorder"/> that can be used to stop the recording.</returns>
+        /// <remarks>
+        /// By default, all recordings will be WebM format using the VP9 video codec, with a frame rate of 30 FPS.
+        /// You must have ffmpeg installed on your system.
+        /// </remarks>
+        Task<ScreenRecorder> ScreencastAsync(ScreencastOptions options = null);
+
+        /// <summary>
         /// Captures a screenshot of this <see cref="IPage"/>.
         /// </summary>
         /// <returns>The screenshot task.</returns>
@@ -1165,6 +1183,13 @@ namespace PuppeteerSharp
         /// <param name="userAgentData">Specific user agent client hint data to use in this page.</param>
         /// <returns>Task.</returns>
         Task SetUserAgentAsync(string userAgent, UserAgentMetadata userAgentData = null);
+
+        /// <summary>
+        /// Sets the user agent, user agent metadata, and platform.
+        /// </summary>
+        /// <param name="options">User agent options.</param>
+        /// <returns>Task.</returns>
+        Task SetUserAgentAsync(SetUserAgentOptions options);
 
         /// <summary>
         /// Sets the viewport.

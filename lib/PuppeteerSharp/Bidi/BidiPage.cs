@@ -648,6 +648,20 @@ public class BidiPage : Page
     }
 
     /// <inheritdoc />
+    public override async Task SetUserAgentAsync(SetUserAgentOptions options)
+    {
+        if (!BidiBrowser.CdpSupported && options?.UserAgentMetadata != null)
+        {
+            throw new PuppeteerException("Current Browser does not support `userAgentMetadata`");
+        }
+
+        var userAgent = options?.UserAgent;
+        var enable = !string.IsNullOrEmpty(userAgent);
+
+        await BidiMainFrame.BrowsingContext.SetUserAgentAsync(enable ? userAgent : null).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public override async Task SetViewportAsync(ViewPortOptions viewport)
     {
         if (!BidiBrowser.CdpSupported)
@@ -886,6 +900,9 @@ public class BidiPage : Page
     public override Task<IPage> OpenDevToolsAsync() => throw new NotImplementedException();
 
     /// <inheritdoc />
+    public override Task<bool> HasDevToolsAsync() => throw new NotSupportedException("HasDevToolsAsync is not supported in WebDriver BiDi.");
+
+    /// <inheritdoc />
     public override async Task SetRequestInterceptionAsync(bool value)
     {
         _requestInterception = await ToggleInterceptionAsync(
@@ -1063,6 +1080,46 @@ public class BidiPage : Page
     {
         _isNavigating = false;
         _requestEventsFired.Clear();
+    }
+
+    internal async Task<BidiFrame> FocusedFrameAsync()
+    {
+        var handle = await BidiMainFrame.IsolatedRealm.EvaluateFunctionHandleAsync(
+            @"() => {
+                let win = window;
+                while (
+                    win.document.activeElement instanceof win.HTMLIFrameElement ||
+                    win.document.activeElement instanceof win.HTMLFrameElement
+                ) {
+                    if (win.document.activeElement.contentWindow === null) {
+                        break;
+                    }
+                    win = win.document.activeElement.contentWindow;
+                }
+                return win;
+            }").ConfigureAwait(false);
+
+        var remoteValue = handle switch
+        {
+            BidiElementHandle bidiElement => bidiElement.BidiJSHandle.RemoteValue,
+            BidiJSHandle bidiJsHandle => bidiJsHandle.RemoteValue,
+            _ => null,
+        };
+
+        if (remoteValue?.Type == "window")
+        {
+            var windowProxy = remoteValue.ValueAs<WindowProxyProperties>();
+            if (windowProxy != null)
+            {
+                var frame = Frames.OfType<BidiFrame>().FirstOrDefault(f => f.Id == windowProxy.Context);
+                if (frame != null)
+                {
+                    return frame;
+                }
+            }
+        }
+
+        return BidiMainFrame;
     }
 
     /// <inheritdoc />
@@ -1378,11 +1435,7 @@ public class BidiPage : Page
     {
         if (expected && interception == null)
         {
-            var options = new AddInterceptCommandParameters();
-            foreach (var phase in phases)
-            {
-                options.Phases.Add(phase);
-            }
+            var options = new AddInterceptCommandParameters(phases);
 
             return await BidiMainFrame.BrowsingContext.AddInterceptAsync(options).ConfigureAwait(false);
         }

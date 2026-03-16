@@ -365,6 +365,36 @@ public class PageSetRequestInterceptionTests : PuppeteerPageBaseTest
     }
 
     [Test, PuppeteerTest("requestinterception-experimental.spec", "cooperative request interception Page.setRequestInterception",
+        "should be able to access the error reason")]
+    public async Task ShouldBeAbleToAccessTheErrorReason()
+    {
+        await Page.SetRequestInterceptionAsync(true);
+        RequestAbortErrorCode? abortReason = null;
+        Page.AddRequestInterceptor(async request =>
+        {
+            await request.AbortAsync(RequestAbortErrorCode.Failed, 0);
+
+            if (request is Cdp.CdpHttpRequest cdpRequest)
+            {
+                abortReason = cdpRequest.AbortErrorReason;
+            }
+            else if (request is Bidi.BidiHttpRequest bidiRequest)
+            {
+                abortReason = bidiRequest.AbortErrorReason;
+            }
+        });
+        try
+        {
+            await Page.GoToAsync(TestConstants.EmptyPage);
+        }
+        catch (NavigationException)
+        {
+        }
+
+        Assert.That(abortReason, Is.EqualTo(RequestAbortErrorCode.Failed));
+    }
+
+    [Test, PuppeteerTest("requestinterception-experimental.spec", "cooperative request interception Page.setRequestInterception",
         "should be abortable with custom error codes")]
     public async Task ShouldBeAbortableWithCustomErrorCodes()
     {
@@ -657,8 +687,8 @@ public class PageSetRequestInterceptionTests : PuppeteerPageBaseTest
     }
 
     [Test, PuppeteerTest("requestinterception-experimental.spec", "cooperative request interception Page.setRequestInterception",
-        "should work with encoded server - 2")]
-    public async Task ShouldWorkWithEncodedServerNegative2()
+        "should work with missing stylesheets")]
+    public async Task ShouldWorkWithMissingStylesheets()
     {
         // The requestWillBeSent will report URL as-is, whereas interception will
         // report encoded URL for stylesheet. @see crbug.com/759388

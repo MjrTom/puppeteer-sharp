@@ -29,6 +29,7 @@ namespace PuppeteerSharp.Cdp
         private bool? _userCacheDisabled;
         private string _userAgent;
         private UserAgentMetadata _userAgentMetadata;
+        private string _platform;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NetworkManager"/> class.
@@ -122,10 +123,11 @@ namespace PuppeteerSharp.Cdp
             return ApplyToAllClientsAsync(ApplyExtraHTTPHeadersAsync);
         }
 
-        internal Task SetUserAgentAsync(string userAgent, UserAgentMetadata userAgentMetadata)
+        internal Task SetUserAgentAsync(string userAgent, UserAgentMetadata userAgentMetadata, string platform = null)
         {
             _userAgent = userAgent;
             _userAgentMetadata = userAgentMetadata;
+            _platform = platform;
             return ApplyToAllClientsAsync(ApplyUserAgentAsync);
         }
 
@@ -199,6 +201,9 @@ namespace PuppeteerSharp.Cdp
                     case "Network.loadingFailed":
                         OnLoadingFailed(client, e.MessageData.ToObject<LoadingFailedEventResponse>());
                         break;
+                    case "Network.requestWillBeSentExtraInfo":
+                        OnRequestWillBeSentExtraInfo(e.MessageData.ToObject<RequestWillBeSentExtraInfoResponse>());
+                        break;
                     case "Network.responseReceivedExtraInfo":
                         await OnResponseReceivedExtraInfoAsync(sender as CDPSession, e.MessageData.ToObject<ResponseReceivedExtraInfoResponse>()).ConfigureAwait(false);
                         break;
@@ -213,6 +218,19 @@ namespace PuppeteerSharp.Cdp
                     (client as CDPSession)?.Close(message);
                     return Task.CompletedTask;
                 });
+            }
+        }
+
+        private void OnRequestWillBeSentExtraInfo(RequestWillBeSentExtraInfoResponse e)
+        {
+            var request = _networkEventManager.GetRequest(e.RequestId);
+            if (request != null)
+            {
+                request.UpdateHeaders(e.Headers);
+            }
+            else
+            {
+                _networkEventManager.RequestExtraInfo(e.RequestId).Add(e);
             }
         }
 
@@ -275,7 +293,7 @@ namespace PuppeteerSharp.Cdp
                 return;
             }
 
-            MaybeReassignOOPIFRequestClient(client, request);
+            MaybeReassignRequestClient(client, request);
             request.FailureText = e.ErrorText;
             request.Response?.BodyLoadedTaskWrapper.TrySetResult(true);
 
@@ -306,7 +324,7 @@ namespace PuppeteerSharp.Cdp
                 return;
             }
 
-            MaybeReassignOOPIFRequestClient(client, request);
+            MaybeReassignRequestClient(client, request);
             request.Response?.BodyLoadedTaskWrapper.TrySetResult(true);
 
             ForgetRequest(request, true);
@@ -503,6 +521,14 @@ namespace PuppeteerSharp.Cdp
                 {
                     HandleRequestRedirect(client, request, e.RedirectResponse, redirectResponseExtraInfo);
                     redirectChain = request.RedirectChainList;
+
+                    var reqExtraInfoList = _networkEventManager.RequestExtraInfo(e.RequestId);
+                    if (reqExtraInfoList.Count > 0)
+                    {
+                        var reqExtraInfo = reqExtraInfoList[0];
+                        reqExtraInfoList.RemoveAt(0);
+                        request.UpdateHeaders(reqExtraInfo.Headers);
+                    }
                 }
             }
 
@@ -516,6 +542,14 @@ namespace PuppeteerSharp.Cdp
                 e,
                 redirectChain,
                 _loggerFactory);
+
+            var requestExtraInfoList = _networkEventManager.RequestExtraInfo(e.RequestId);
+            if (requestExtraInfoList.Count > 0)
+            {
+                var extraInfoForRequest = requestExtraInfoList[0];
+                requestExtraInfoList.RemoveAt(0);
+                request.UpdateHeaders(extraInfoForRequest.Headers);
+            }
 
             _networkEventManager.StoreRequest(e.RequestId, request);
 
@@ -606,6 +640,7 @@ namespace PuppeteerSharp.Cdp
                     {
                         UserAgent = _userAgent,
                         UserAgentMetadata = _userAgentMetadata,
+                        Platform = _platform,
                     }).ConfigureAwait(false);
             }
             catch (Exception ex) when (CanIgnoreError(ex))
@@ -706,14 +741,14 @@ namespace PuppeteerSharp.Cdp
         private Task ApplyToAllClientsAsync(Func<ICDPSession, Task> func)
             => Task.WhenAll(_clients.Keys.Select(func));
 
-        private void MaybeReassignOOPIFRequestClient(CDPSession client, CdpHttpRequest request)
+        private void MaybeReassignRequestClient(CDPSession client, CdpHttpRequest request)
         {
-            // Document requests for OOPIFs start in the parent frame but are adopted by their
-            // child frame, meaning their loadingFinished and loadingFailed events are fired on
-            // the child session. In this case we reassign the request CDPSession to ensure all
-            // subsequent actions use the correct session (e.g. retrieving response body in
-            // CdpHttpResponse).
-            if (client != request.Client && request.IsNavigationRequest)
+            // Requests may start in one session but have their completion events (loadingFinished,
+            // loadingFailed) fire on a different session. This happens for OOPIF document requests
+            // (adopted by child frame) and worker script requests (adopted by worker session).
+            // Reassign the request CDPSession to ensure subsequent actions (e.g. retrieving response
+            // body in CdpHttpResponse) use the correct session.
+            if (client != request.Client)
             {
                 request.Client = client;
             }

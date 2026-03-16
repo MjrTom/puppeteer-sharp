@@ -156,11 +156,9 @@ internal class BrowsingContext : IDisposable
 
     public async Task CloseAsync(bool? promptUnload)
     {
-        foreach (var context in _children.Values)
-        {
-            await context.CloseAsync(promptUnload).ConfigureAwait(false);
-        }
-
+        // The WebDriver BiDi specification only allows closing top-level browsing contexts.
+        // Closing a top-level context automatically closes all its children, so there is
+        // no need to explicitly close nested contexts.
         await Session.Driver.BrowsingContext.CloseAsync(new CloseCommandParameters(Id)
         {
             PromptUnload = promptUnload,
@@ -273,7 +271,7 @@ internal class BrowsingContext : IDisposable
             NetworkConditions = enabled ? new NetworkConditionsOffline() : null,
             Contexts = [Id],
         };
-        await Session.Driver.Emulation.SetNetworkConditions(parameters).ConfigureAwait(false);
+        await Session.Driver.Emulation.SetNetworkConditionsAsync(parameters).ConfigureAwait(false);
     }
 
     internal async Task SetScreenOrientationOverrideAsync(ScreenOrientation screenOrientation)

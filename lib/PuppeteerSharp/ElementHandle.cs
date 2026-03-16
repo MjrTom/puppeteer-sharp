@@ -98,7 +98,8 @@ namespace PuppeteerSharp
                     throw new ArgumentNullException(nameof(options));
                 }
 
-                var clip = await handle.NonEmptyVisibleBoundingBoxAsync().ConfigureAwait(false);
+                var userClip = options.Clip;
+                var elementClip = await handle.NonEmptyVisibleBoundingBoxAsync().ConfigureAwait(false);
                 var page = handle.Page;
 
                 if (options.ScrollIntoView)
@@ -106,7 +107,7 @@ namespace PuppeteerSharp
                     await handle.ScrollIntoViewIfNeededAsync().ConfigureAwait(false);
 
                     // We measure again just in case.
-                    clip = await handle.NonEmptyVisibleBoundingBoxAsync().ConfigureAwait(false);
+                    elementClip = await handle.NonEmptyVisibleBoundingBoxAsync().ConfigureAwait(false);
                 }
 
                 var points = await EvaluateFunctionAsync<decimal[]>(@"() => {
@@ -119,10 +120,18 @@ namespace PuppeteerSharp
                     ];
                 }").ConfigureAwait(false);
 
-                clip.X += decimal.Floor(points[0]);
-                clip.Y += decimal.Floor(points[1]);
+                elementClip.X += decimal.Floor(points[0]);
+                elementClip.Y += decimal.Floor(points[1]);
 
-                options.Clip = clip.ToClip();
+                if (userClip != null)
+                {
+                    elementClip.X += userClip.X;
+                    elementClip.Y += userClip.Y;
+                    elementClip.Height = userClip.Height;
+                    elementClip.Width = userClip.Width;
+                }
+
+                options.Clip = elementClip.ToClip();
 
                 return await page.ScreenshotBase64Async(options).ConfigureAwait(false);
             });
@@ -164,22 +173,29 @@ namespace PuppeteerSharp
             });
 
         /// <inheritdoc/>
-        public Task TouchStartAsync()
-            => BindIsolatedHandleAsync<IElementHandle, ElementHandle>(async handle =>
+        public Task<ITouchHandle> TouchStartAsync()
+            => BindIsolatedHandleAsync<ITouchHandle, ElementHandle>(async handle =>
             {
                 await handle.ScrollIntoViewIfNeededAsync().ConfigureAwait(false);
                 var clickablePoint = await handle.ClickablePointAsync().ConfigureAwait(false);
-                await Page.Touchscreen.TouchStartAsync(clickablePoint.X, clickablePoint.Y).ConfigureAwait(false);
-                return handle;
+                return await Page.Touchscreen.TouchStartAsync(clickablePoint.X, clickablePoint.Y).ConfigureAwait(false);
             });
 
         /// <inheritdoc/>
-        public Task TouchMoveAsync()
+        public Task TouchMoveAsync(ITouchHandle touch = null)
             => BindIsolatedHandleAsync<IElementHandle, ElementHandle>(async handle =>
             {
                 await handle.ScrollIntoViewIfNeededAsync().ConfigureAwait(false);
                 var clickablePoint = await handle.ClickablePointAsync().ConfigureAwait(false);
-                await Page.Touchscreen.TouchMoveAsync(clickablePoint.X, clickablePoint.Y).ConfigureAwait(false);
+                if (touch != null)
+                {
+                    await touch.MoveAsync(clickablePoint.X, clickablePoint.Y).ConfigureAwait(false);
+                }
+                else
+                {
+                    await Page.Touchscreen.TouchMoveAsync(clickablePoint.X, clickablePoint.Y).ConfigureAwait(false);
+                }
+
                 return handle;
             });
 
@@ -360,8 +376,8 @@ namespace PuppeteerSharp
                   const border = [
                     {x: rect.left, y: rect.top},
                     {x: rect.left + rect.width, y: rect.top},
-                    {x: rect.left + rect.width, y: rect.top + rect.bottom},
-                    {x: rect.left, y: rect.top + rect.bottom},
+                    {x: rect.left + rect.width, y: rect.top + rect.height},
+                    {x: rect.left, y: rect.top + rect.height},
                   ];
                   const padding = transformQuadWithOffsets(border, offsets.border);
                   const content = transformQuadWithOffsets(padding, offsets.padding);
@@ -691,7 +707,7 @@ namespace PuppeteerSharp
         /// <inheritdoc />
         public override async ValueTask DisposeAsync()
         {
-            if (Disposed)
+            if (Disposed || CheckAndResetMoved())
             {
                 return;
             }
@@ -707,6 +723,12 @@ namespace PuppeteerSharp
 
         /// <inheritdoc/>
         public abstract Task AutofillAsync(AutofillData data);
+
+        /// <inheritdoc/>
+        public Locators.Locator AsLocator()
+        {
+            return new Locators.HandleLocator(this);
+        }
 
         /// <inheritdoc/>
         public virtual Task ScrollIntoViewAsync()

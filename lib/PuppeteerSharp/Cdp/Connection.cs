@@ -148,6 +148,11 @@ namespace PuppeteerSharp.Cdp
             return new Connection(url, connectionOptions.SlowMo, connectionOptions.EnqueueAsyncMessages, transport, loggerFactory, connectionOptions.ProtocolTimeout);
         }
 
+        internal static Connection CreateFromTransport(IConnectionTransport transport, IConnectionOptions connectionOptions, ILoggerFactory loggerFactory = null)
+        {
+            return new Connection(string.Empty, connectionOptions.SlowMo, connectionOptions.EnqueueAsyncMessages, transport, loggerFactory, connectionOptions.ProtocolTimeout);
+        }
+
         internal static Connection FromSession(CdpCDPSession session) => session.Connection;
 
         internal int GetMessageId() => Interlocked.Increment(ref _lastId);
@@ -190,6 +195,23 @@ namespace PuppeteerSharp.Cdp
 
         internal bool HasPendingCallbacks() => !_callbacks.IsEmpty;
 
+        internal List<string> GetPendingProtocolErrors()
+        {
+            var result = new List<string>();
+
+            foreach (var callback in _callbacks.Values)
+            {
+                result.Add($"{callback.Method} timed out.");
+            }
+
+            foreach (var session in _sessions.Values)
+            {
+                result.AddRange(session.GetPendingProtocolErrors());
+            }
+
+            return result;
+        }
+
         internal void Close(string closeReason)
         {
             if (IsClosed)
@@ -223,6 +245,8 @@ namespace PuppeteerSharp.Cdp
 
         internal CdpCDPSession GetSession(string sessionId) => _sessions.GetValueOrDefault(sessionId);
 
+        internal Task<CdpCDPSession> GetSessionAsync(string sessionId) => _sessions.GetItemAsync(sessionId);
+
         /// <summary>
         /// Releases all resource used by the <see cref="Connection"/> object.
         /// It will raise the <see cref="Disconnected"/> event and dispose <see cref="Transport"/>.
@@ -242,12 +266,19 @@ namespace PuppeteerSharp.Cdp
             _callbackQueue.Dispose();
         }
 
-        private Task<CdpCDPSession> GetSessionAsync(string sessionId) => _sessions.GetItemAsync(sessionId);
-
         private async void Transport_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
             try
             {
+                // Apply SlowMo delay before entering the serialized queue.
+                // In upstream Puppeteer (JS), the delay runs independently per message.
+                // If we delay inside the serialized queue, delays accumulate and cause
+                // timeouts on busy pages (see #2659).
+                if (e.Message.Length > 0 && Delay > 0)
+                {
+                    await Task.Delay(Delay).ConfigureAwait(false);
+                }
+
                 await _callbackQueue.Enqueue(() => ProcessMessage(e)).ConfigureAwait(false);
             }
             catch (Exception exception)
@@ -264,11 +295,6 @@ namespace PuppeteerSharp.Cdp
             {
                 var response = e.Message;
                 ConnectionResponse obj;
-
-                if (response.Length > 0 && Delay > 0)
-                {
-                    await Task.Delay(Delay).ConfigureAwait(false);
-                }
 
                 try
                 {

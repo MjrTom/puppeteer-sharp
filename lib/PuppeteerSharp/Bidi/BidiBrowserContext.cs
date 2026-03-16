@@ -61,6 +61,14 @@ public class BidiBrowserContext : BrowserContext
     {
         var permissionsSet = new HashSet<OverridePermission>(permissions);
 
+        foreach (var permission in permissionsSet)
+        {
+            if (!Enum.IsDefined(typeof(OverridePermission), permission))
+            {
+                throw new ArgumentException($"Unknown permission: {permission}");
+            }
+        }
+
         // We need to set all permissions - grant the ones in the list, deny the rest
         var tasks = new List<Task>();
         foreach (OverridePermission permission in Enum.GetValues(typeof(OverridePermission)))
@@ -181,7 +189,7 @@ public class BidiBrowserContext : BrowserContext
     }
 
     /// <inheritdoc />
-    public override Task<IPage[]> PagesAsync() => Task.FromResult(_pages.Values.Cast<IPage>().ToArray());
+    public override Task<IPage[]> PagesAsync(bool includeAll = false) => Task.FromResult(_pages.Values.Cast<IPage>().ToArray());
 
     /// <inheritdoc />
     public override async Task<IPage> NewPageAsync(CreatePageOptions options = null)

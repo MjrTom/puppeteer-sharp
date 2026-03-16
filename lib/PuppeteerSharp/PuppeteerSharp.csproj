@@ -12,10 +12,10 @@
     <Description>Headless Browser .NET API</Description>
     <PackageId>PuppeteerSharp</PackageId>
     <PackageReleaseNotes></PackageReleaseNotes>
-    <PackageVersion>21.1.1</PackageVersion>
-    <ReleaseVersion>21.1.1</ReleaseVersion>
-    <AssemblyVersion>21.1.1</AssemblyVersion>
-    <FileVersion>21.1.1</FileVersion>
+    <PackageVersion>24.39.1</PackageVersion>
+    <ReleaseVersion>24.39.1</ReleaseVersion>
+    <AssemblyVersion>24.39.1</AssemblyVersion>
+    <FileVersion>24.39.1</FileVersion>
     <SynchReleaseVersion>false</SynchReleaseVersion>
     <StyleCopTreatErrorsAsWarnings>false</StyleCopTreatErrorsAsWarnings>
     <DebugType>embedded</DebugType>
@@ -45,17 +45,36 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-    <PackageReference Include="WebDriverBiDi" Version="0.0.43" Condition=" '$(DefineConstants)' != 'CDP_ONLY' " />
+    <PackageReference Include="WebDriverBiDi" Version="0.0.45" Condition=" '$(DefineConstants)' != 'CDP_ONLY' " />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.0" />
-    <PackageReference Include="System.Text.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.3" />
+    <PackageReference Include="System.Text.Json" Version="10.0.3" />
   </ItemGroup>
   <ItemGroup>
     <AdditionalFiles Include="..\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
+  <PropertyGroup Condition=" '$(DefineConstants)' != 'CDP_ONLY' ">
+    <ChromiumBidiVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)Bidi/chromium-bidi.version').Trim())</ChromiumBidiVersion>
+    <MapperTabPath>$(MSBuildThisFileDirectory)Bidi/mapperTab.js</MapperTabPath>
+  </PropertyGroup>
+  <Target Name="DownloadMapperTab" BeforeTargets="PrepareForBuild" Condition=" '$(DefineConstants)' != 'CDP_ONLY' AND !Exists('$(MapperTabPath)') ">
+    <PropertyGroup>
+      <_TarballUrl>https://registry.npmjs.org/chromium-bidi/-/chromium-bidi-$(ChromiumBidiVersion).tgz</_TarballUrl>
+      <_TarballPath>$(IntermediateOutputPath)chromium-bidi-$(ChromiumBidiVersion).tgz</_TarballPath>
+      <_ExtractDir>$(IntermediateOutputPath)chromium-bidi-extract</_ExtractDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <DownloadFile SourceUrl="$(_TarballUrl)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="chromium-bidi-$(ChromiumBidiVersion).tgz" SkipUnchangedFiles="true" />
+    <!-- Extract to a TFM-specific temp dir to avoid parallel build races on Windows -->
+    <MakeDir Directories="$(_ExtractDir)" />
+    <Exec Command="tar -xzf &quot;$(_TarballPath)&quot; --strip-components=3 -C &quot;$(_ExtractDir)&quot; package/lib/iife/mapperTab.js" />
+    <Copy SourceFiles="$(_ExtractDir)/mapperTab.js" DestinationFiles="$(MapperTabPath)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Downloaded chromium-bidi v$(ChromiumBidiVersion) mapperTab.js" />
+  </Target>
   <ItemGroup>
     <EmbeddedResource Include="Injected\injected.js" />
+    <EmbeddedResource Include="Bidi\mapperTab.js" Condition=" '$(DefineConstants)' != 'CDP_ONLY' " />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />

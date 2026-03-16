@@ -33,11 +33,6 @@ namespace PuppeteerSharp.Cdp;
 /// <inheritdoc />
 public class CdpBrowser : Browser
 {
-    /// <summary>
-    /// Time in milliseconds for process to exit gracefully.
-    /// </summary>
-    private const int CloseTimeout = 5000;
-
     private readonly ConcurrentDictionary<string, CdpBrowserContext> _contexts;
     private readonly ILogger<Browser> _logger;
     private readonly bool _handleDevToolsAsPage;
@@ -50,6 +45,7 @@ public class CdpBrowser : Browser
         string[] contextIds,
         ViewPortOptions defaultViewport,
         LauncherBase launcher,
+        Func<Task> closeCallback = null,
         Func<Target, bool> targetFilter = null,
         Func<Target, bool> isPageTargetFunc = null,
         bool handleDevToolsAsPage = false,
@@ -58,6 +54,7 @@ public class CdpBrowser : Browser
         BrowserType = browser;
         DefaultViewport = defaultViewport;
         Launcher = launcher;
+        CloseCallback = closeCallback;
         Connection = connection;
         _handleDevToolsAsPage = handleDevToolsAsPage;
         _networkEnabled = networkEnabled;
@@ -93,7 +90,7 @@ public class CdpBrowser : Browser
     {
         get
         {
-            if (Launcher == null)
+            if (CloseCallback == null)
             {
                 return Connection.IsClosed;
             }
@@ -101,6 +98,12 @@ public class CdpBrowser : Browser
             return _closeTask is { IsCompleted: true };
         }
     }
+
+    /// <inheritdoc />
+    public override DebugInfo DebugInfo => new()
+    {
+        PendingProtocolErrors = Connection.GetPendingProtocolErrors(),
+    };
 
     internal ITargetManager TargetManager { get; }
 
@@ -144,6 +147,12 @@ public class CdpBrowser : Browser
                 ProxyBypassList = string.Join(",", options?.ProxyBypassList ?? Array.Empty<string>()),
             }).ConfigureAwait(false);
         var context = new CdpBrowserContext(Connection, this, response.BrowserContextId);
+
+        if (options?.DownloadBehavior != null)
+        {
+            await context.SetDownloadBehaviorAsync(options.DownloadBehavior).ConfigureAwait(false);
+        }
+
         _contexts.TryAdd(response.BrowserContextId, context);
         return context;
     }
@@ -214,6 +223,7 @@ public class CdpBrowser : Browser
         bool acceptInsecureCerts,
         ViewPortOptions defaultViewPort,
         LauncherBase launcher,
+        Func<Task> closeCallback = null,
         Func<Target, bool> targetFilter = null,
         Func<Target, bool> isPageTargetCallback = null,
         Action<IBrowser> initAction = null,
@@ -226,6 +236,7 @@ public class CdpBrowser : Browser
             contextIds,
             defaultViewPort,
             launcher,
+            closeCallback,
             targetFilter,
             isPageTargetCallback,
             handleDevToolsAsPage,
@@ -316,6 +327,14 @@ public class CdpBrowser : Browser
         }
 
         return page;
+    }
+
+    internal async Task<string> HasDevToolsTargetAsync(string pageTargetId)
+    {
+        var response = await Connection.SendAsync<TargetCreateTargetResponse>(
+            "Target.getDevToolsTarget",
+            new TargetActivateTargetRequest { TargetId = pageTargetId }).ConfigureAwait(false);
+        return response.TargetId;
     }
 
     internal async Task DisposeContextAsync(string contextId)
@@ -420,12 +439,9 @@ public class CdpBrowser : Browser
                     ? Task.CompletedTask
                     : Connection.SendAsync("Browser.close");
 
-                if (Launcher != null)
+                if (CloseCallback != null)
                 {
-                    // Notify process that exit is expected, but should be enforced if it
-                    // doesn't occur withing the close timeout.
-                    var closeTimeout = TimeSpan.FromMilliseconds(CloseTimeout);
-                    await Launcher.EnsureExitAsync(closeTimeout).ConfigureAwait(false);
+                    await CloseCallback().ConfigureAwait(false);
                 }
 
                 // Now we can safely await the browser close operation without risking keeping chromium
@@ -440,11 +456,6 @@ public class CdpBrowser : Browser
         catch (Exception ex)
         {
             _logger.LogError(ex, ex.Message);
-
-            if (Launcher != null)
-            {
-                await Launcher.KillAsync().ConfigureAwait(false);
-            }
         }
 
         OnClosed();

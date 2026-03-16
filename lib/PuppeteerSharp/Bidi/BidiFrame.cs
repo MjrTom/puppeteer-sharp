@@ -323,8 +323,12 @@ public class BidiFrame : Frame
                     // Race between navigation, historyUpdated, and timeout
                     var completedTask = await Task.WhenAny(navigationTcs.Task, historyUpdatedTcs.Task, cancellationTcs.Task).ConfigureAwait(false);
 
-                    // Check if we timed out
-                    cancellationToken.ThrowIfCancellationRequested();
+                    // Check if we timed out - throw TimeoutException so RewriteNavigationError
+                    // can convert it to NavigationException
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("Navigation timeout exceeded");
+                    }
 
                     if (completedTask == historyUpdatedTcs.Task)
                     {
@@ -332,7 +336,10 @@ public class BidiFrame : Frame
                         await Task.WhenAny(navigationTcs.Task, delay).ConfigureAwait(false);
 
                         // Check again after the delay
-                        cancellationToken.ThrowIfCancellationRequested();
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            throw new TimeoutException("Navigation timeout exceeded");
+                        }
 
                         if (!navigationTcs.Task.IsCompleted)
                         {
@@ -977,6 +984,8 @@ public class BidiFrame : Frame
                 var consoleArgs = args.Arguments;
                 var handleArgs = consoleArgs?.Select(arg => ((BidiFrameRealm)MainRealm).CreateHandle(arg)).ToArray() ?? [];
 
+                var logEntryText = args.Text;
+
                 var text = string.Join(
                     " ",
                     handleArgs.Select(arg =>
@@ -984,6 +993,11 @@ public class BidiFrame : Frame
                         if (arg is BidiJSHandle { IsPrimitiveValue: true } jsHandle)
                         {
                             return BidiDeserializer.Deserialize(jsHandle.RemoteValue);
+                        }
+
+                        if (arg is BidiJSHandle { RemoteValue.Type: "error" } && !string.IsNullOrEmpty(logEntryText))
+                        {
+                            return (object)logEntryText.Split('\n')[0];
                         }
 
                         return arg.ToString();

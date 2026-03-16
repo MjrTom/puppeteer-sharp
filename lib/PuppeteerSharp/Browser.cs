@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 #if !CDP_ONLY
 using PuppeteerSharp.Bidi;
@@ -58,6 +59,9 @@ namespace PuppeteerSharp
         public virtual bool IsConnected => !Connection.IsClosed;
 
         /// <inheritdoc/>
+        public abstract DebugInfo DebugInfo { get; }
+
+        /// <inheritdoc/>
         public virtual ITarget Target => Targets().FirstOrDefault(t => t.Type == TargetType.Browser);
 
         internal TaskQueue ScreenshotTaskQueue { get; } = new();
@@ -67,6 +71,8 @@ namespace PuppeteerSharp
         internal ViewPortOptions DefaultViewport { get; init; }
 
         internal LauncherBase Launcher { get; init; }
+
+        internal Func<Task> CloseCallback { get; init; }
 
         internal Func<Target, bool> IsPageTargetFunc { get; init; }
 
@@ -100,9 +106,9 @@ namespace PuppeteerSharp
         public abstract Task UninstallExtensionAsync(string id);
 
         /// <inheritdoc/>
-        public async Task<IPage[]> PagesAsync()
+        public async Task<IPage[]> PagesAsync(bool includeAll = false)
             => (await Task.WhenAll(
-                BrowserContexts().Select(t => t.PagesAsync())).ConfigureAwait(false))
+                BrowserContexts().Select(t => t.PagesAsync(includeAll))).ConfigureAwait(false))
                 .SelectMany(p => p).ToArray();
 
         /// <inheritdoc/>
@@ -126,6 +132,7 @@ namespace PuppeteerSharp
             }
 
             var timeout = options?.Timeout ?? DefaultWaitForTimeout;
+            var cancellationToken = options?.CancellationToken ?? default;
             var targetCompletionSource = new TaskCompletionSource<ITarget>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             void TargetHandler(object sender, TargetChangedArgs e)
@@ -136,10 +143,18 @@ namespace PuppeteerSharp
                 }
             }
 
+            CancellationTokenRegistration? cancellationRegistration = null;
+
             try
             {
                 TargetCreated += TargetHandler;
                 TargetChanged += TargetHandler;
+
+                if (cancellationToken != default)
+                {
+                    cancellationRegistration = cancellationToken.Register(
+                        () => targetCompletionSource.TrySetCanceled(cancellationToken));
+                }
 
                 var existingTarget = Targets().FirstOrDefault(predicate);
                 if (existingTarget != null)
@@ -151,6 +166,7 @@ namespace PuppeteerSharp
             }
             finally
             {
+                cancellationRegistration?.Dispose();
                 TargetCreated -= TargetHandler;
                 TargetChanged -= TargetHandler;
             }
@@ -185,6 +201,18 @@ namespace PuppeteerSharp
             => DefaultContext.SetPermissionAsync(origin, permissions);
 
         /// <inheritdoc/>
+        public Task<CookieParam[]> GetCookiesAsync()
+            => DefaultContext.GetCookiesAsync();
+
+        /// <inheritdoc/>
+        public Task SetCookieAsync(params CookieData[] cookies)
+            => DefaultContext.SetCookieAsync(cookies);
+
+        /// <inheritdoc/>
+        public Task DeleteCookieAsync(params CookieParam[] cookies)
+            => DefaultContext.DeleteCookieAsync(cookies);
+
+        /// <inheritdoc/>
         public Task DeleteMatchingCookiesAsync(params DeleteCookiesRequest[] filters)
             => DefaultContext.DeleteMatchingCookiesAsync(filters);
 
@@ -213,7 +241,7 @@ namespace PuppeteerSharp
         {
             // On disposal, the browser doesn't get closed. It gets disconnected.
             // TODO: See a better way to handle this instead of checking for BidiBrowser.
-            if (Launcher == null)
+            if (CloseCallback == null)
             {
                 Disconnect();
             }

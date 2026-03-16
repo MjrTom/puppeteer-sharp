@@ -20,12 +20,20 @@ namespace PuppeteerSharp.Tests.OOPIFTests
             if (TestConstants.IsChrome)
             {
                 // Chrome-specific args for OOPIF testing
-                DefaultOptions.Args =
-                [
+                var args = new List<string>
+                {
                     "--site-per-process",
-                    $"--remote-debugging-port={++_port}",
-                    "--host-rules=\"MAP * 127.0.0.1\""
-                ];
+                    "--host-rules=\"MAP * 127.0.0.1\"",
+                };
+
+                // Only add an explicit debugging port when not using pipe transport,
+                // since pipe mode uses --remote-debugging-pipe instead.
+                if (!DefaultOptions.Pipe)
+                {
+                    args.Add($"--remote-debugging-port={++_port}");
+                }
+
+                DefaultOptions.Args = args.ToArray();
             }
             else
             {
@@ -468,6 +476,39 @@ namespace PuppeteerSharp.Tests.OOPIFTests
                     await frame.EvaluateFunctionAsync<bool>("() => !!window['plusOne']"),
                     Is.False);
             }
+        }
+
+        [Test, PuppeteerTest("oopif.spec", "OOPIF", "should exposeFunction on a page with a PDF viewer")]
+        public async Task ShouldExposeFunctionOnAPageWithAPdfViewer()
+        {
+            await Page.GoToAsync(
+                TestConstants.ServerUrl + "/pdf-viewer.html",
+                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle2 } });
+
+            await Page.ExposeFunctionAsync("test", () =>
+            {
+                System.Diagnostics.Debug.WriteLine("test");
+            });
+        }
+
+        [Test, PuppeteerTest("oopif.spec", "OOPIF", "should evaluate on a page with a PDF viewer")]
+        public async Task ShouldEvaluateOnAPageWithAPdfViewer()
+        {
+            await Page.GoToAsync(
+                TestConstants.ServerUrl + "/pdf-viewer.html",
+                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle2 } });
+
+            var results = await Task.WhenAll(
+                Page.Frames.Select(async frame =>
+                    await frame.EvaluateFunctionAsync<string>("() => window.location.pathname")));
+
+            Assert.That(results, Is.EqualTo(new[]
+            {
+                "/pdf-viewer.html",
+                "/sample.pdf",
+                "/index.html",
+                "/sample.pdf",
+            }));
         }
 
         [Test, PuppeteerTest("oopif.spec", "waitForFrame", "should resolve immediately if the frame already exists")]

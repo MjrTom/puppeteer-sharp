@@ -62,6 +62,7 @@ public class CdpPage : Page
         PrimaryTargetClient = client;
         TabTargetClient = (CdpCDPSession)client.ParentSession;
         TabTarget = (CdpTarget)TabTargetClient.Target;
+        TabId = TabTarget.TargetId;
         PrimaryTarget = target;
         _targetManager = target.TargetManager;
         Keyboard = new CdpKeyboard(client);
@@ -189,6 +190,14 @@ public class CdpPage : Page
     }
 
     /// <inheritdoc/>
+    public override async Task<bool> HasDevToolsAsync()
+    {
+        var browser = (CdpBrowser)Browser;
+        var targetId = await browser.HasDevToolsTargetAsync(PrimaryTarget.TargetId).ConfigureAwait(false);
+        return !string.IsNullOrEmpty(targetId);
+    }
+
+    /// <inheritdoc/>
     public override async Task<CookieParam[]> GetCookiesAsync(params string[] urls)
     {
         if (urls == null)
@@ -277,6 +286,27 @@ public class CdpPage : Page
             }
 
             await PrimaryTargetClient.SendAsync("Network.deleteCookies", cookie).ConfigureAwait(false);
+
+            if (pageURL.StartsWith("http", StringComparison.Ordinal) && cookie.PartitionKey == null)
+            {
+                var url = new Uri(pageURL);
+                var topLevelSite = $"{url.Scheme}://{url.Host}";
+
+                await PrimaryTargetClient.SendAsync(
+                    "Network.deleteCookies",
+                    new CookieParam
+                    {
+                        Name = cookie.Name,
+                        Url = cookie.Url,
+                        Domain = cookie.Domain,
+                        Path = cookie.Path,
+                        PartitionKey = new CookiePartitionKey
+                        {
+                            SourceOrigin = topLevelSite,
+                            HasCrossSiteAncestor = false,
+                        },
+                    }).ConfigureAwait(false);
+            }
         }
     }
 
@@ -455,6 +485,13 @@ public class CdpPage : Page
     /// <inheritdoc/>
     public override Task SetUserAgentAsync(string userAgent, UserAgentMetadata userAgentData = null)
         => FrameManager.NetworkManager.SetUserAgentAsync(userAgent, userAgentData);
+
+    /// <inheritdoc/>
+    public override async Task SetUserAgentAsync(SetUserAgentOptions options)
+    {
+        var userAgent = options?.UserAgent ?? await Browser.GetUserAgentAsync().ConfigureAwait(false);
+        await FrameManager.NetworkManager.SetUserAgentAsync(userAgent, options?.UserAgentMetadata, options?.Platform).ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
     public override async Task<IResponse> ReloadAsync(ReloadOptions options)
@@ -1044,6 +1081,7 @@ public class CdpPage : Page
                 AddConsoleMessageAsync,
                 HandleException);
             _workers[session.Id] = worker;
+            _ = FrameManager.NetworkManager.AddClientAsync(session);
             OnWorkerCreated(worker);
         }
 
@@ -1196,13 +1234,18 @@ public class CdpPage : Page
         if (HasConsoleEventListeners)
         {
             await Task.WhenAll(values.Select(v =>
-                RemoteObjectHelper.ReleaseObjectAsync(Client, ((CdpJSHandle)v).RemoteObject, _logger))).ConfigureAwait(false);
+                RemoteObjectHelper.ReleaseObjectAsync(Client, ((ICdpHandle)v).RemoteObject, _logger))).ConfigureAwait(false);
             return;
         }
 
         var tokens = values.Select(i =>
         {
-            var handle = (CdpJSHandle)i;
+            var handle = (ICdpHandle)i;
+            if (handle.RemoteObject.Subtype == RemoteObjectSubtype.Error && !string.IsNullOrEmpty(handle.RemoteObject.Description))
+            {
+                return handle.RemoteObject.Description.Split('\n')[0];
+            }
+
             return handle.RemoteObject.ObjectId != null || handle.RemoteObject.Type == RemoteObjectType.Object
                 ? i.ToString()
                 : RemoteObjectHelper.ValueFromRemoteObject<object>(handle.RemoteObject)?.ToString() ?? "null";
